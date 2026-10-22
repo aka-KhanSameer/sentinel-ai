@@ -5,8 +5,12 @@ This is a hobby demonstration with a hard $0/month hosting target. The intended 
 ## Current status
 
 - GitHub source: [`aka-KhanSameer/sentinel-ai`](https://github.com/aka-KhanSameer/sentinel-ai), branch `main`.
-- No Vercel project or Render service has been created yet. Creating a $0 static project and $0 Free web service is in scope; do not select paid compute, attach a disk, create a paid database, add payment details, or start a trial.
-- Frontend/API, CORS, health checks, and live uploads are not yet verified. Update this section after completing the live acceptance checks.
+- Vercel Hobby frontend: [https://sentinel-ai-pearl-mu.vercel.app](https://sentinel-ai-pearl-mu.vercel.app), deployed from `main`.
+- Render Free API: [https://sentinel-ai-api-lduk.onrender.com](https://sentinel-ai-api-lduk.onrender.com), service `sentinel-ai-api`, deployed from commit `4a3a905` (deployment `dep-dbcu9f3l550s73d4sh10`). The selected resources are free tier; no database, disk, paid compute, or trial was created.
+- Live checks on 2026-10-22: frontend loaded and fetched capabilities; `/api/v1/health` returned `{"status":"ok"}`; `/api/v1/readiness` returned ready with `storage: "session_ephemeral"`; capabilities reported public demo mode, no ML classifier, no OCR, and a 2 MiB upload limit. The exact Vercel origin is configured in Render CORS.
+- A real browser upload of `tests/fixtures/prompt_injection_test_suite.pdf` completed through the public frontend. The UI rendered a PDF report with parser status completed, overall analysis partial, rules-only mode, 22 findings, and risk 100/100. This is an end-to-end workflow smoke check, not a measured per-payload accuracy result. The uploaded file is processed in memory; the test does not verify persistence or classifier quality.
+- Local verification on 2026-10-22: `npm test` passed 30/30 tests; `PUBLIC_API_BASE_URL=https://sentinel-ai-api-lduk.onrender.com/api/v1 npm run build:frontend` passed. The frontend build emitted the configured API URL.
+- PostgreSQL is not provisioned, so no production database migration was run. Session report/history storage is ephemeral and may disappear after a restart or spin-down.
 
 ## Why the full classifier is off in the free deployment
 
@@ -37,7 +41,7 @@ References: [Render Free limits](https://render.com/docs/free), [Render compute 
 | `PUBLIC_DEMO_MODE` | `true` |
 | `REQUIRE_LOCAL_CLASSIFIER` | `false` |
 | `REQUIRE_DATABASE` | `false` |
-| `CORS_ORIGINS` | Exact deployed Vercel origin, e.g. `https://sentinel-ai.vercel.app` (replace with the actual hostname; no trailing slash) |
+| `CORS_ORIGINS` | Exact deployed Vercel origin, currently `https://sentinel-ai-pearl-mu.vercel.app` (no trailing slash) |
 | `MAX_UPLOAD_BYTES` | `2097152` (2 MiB, below the application’s default limit for the constrained free instance) |
 | `MAX_TEXT_BYTES` | `262144` |
 | `MAX_PROCESSING_MS` | `20000` |
@@ -88,4 +92,4 @@ After deployment, verify and record:
 5. Upload an actual PDF through the public frontend, wait for any cold start, and confirm the UI shows a report with PDF parser status, actual source evidence, and rules-only mode. A live scan is not proof that the classifier works.
 6. Check logs for parser/OOM failures without logging document content. Never expose environment values in screenshots or logs.
 
-Record dates, deployed URLs, response facts, sample filename, and whether the actual PDF upload succeeded. Mark anything not completed as unverified.
+Current verification record: 2026-10-22; frontend `https://sentinel-ai-pearl-mu.vercel.app`; API `https://sentinel-ai-api-lduk.onrender.com`; health and readiness passed; capabilities matched the rules-only public demo; the actual fixture PDF upload returned a rendered report (parser completed, analysis partial, 22 heuristic findings, critical risk). A live upload has been verified, but per-payload detection accuracy, false-positive rate, cold-start reliability, and cross-site browser history persistence have not been measured. No database exists, so migration is not applicable. Repeat these checks after any deployment.
