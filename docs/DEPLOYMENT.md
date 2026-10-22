@@ -61,6 +61,10 @@ References: [Render Free limits](https://render.com/docs/free), [Render compute 
 3. Do not add secrets. `PUBLIC_API_BASE_URL` is public build-time config. After creating the Render service, set it to `https://<actual-render-host>/api/v1` and redeploy the frontend.
 4. Keep only the default HTTPS `vercel.app` domain for this portfolio demo. Vercel serves static files; uploads go directly from the browser to Render and bypass Vercel Functions.
 
+### Vercel Hobby private-repository author check
+
+Vercel Hobby can block an otherwise valid production deployment when the latest Git commit's author is not the owner of the Vercel project. Keep the repository private and the plan free: make commits with the project owner's verified GitHub identity (for this repository, `105150944+aka-KhanSameer@users.noreply.github.com`) and confirm GitHub associates that address with `aka-KhanSameer`. Do not solve this by upgrading or making the repository public. Check the Vercel deployment page after every push; a Git push succeeding does not mean Vercel published the commit.
+
 ## Create the Render API (Free, $0)
 
 1. In Render, create one Web Service from the existing private GitHub repository, branch `main`. Choose the **Node** runtime (not Docker), Oregon or another available region, and the **Free: $0 / 512 MB** compute option. If Free is unavailable without adding payment details, stop and report that account restriction; do not choose a paid plan or trial.
