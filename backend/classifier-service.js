@@ -55,6 +55,7 @@ function runOne(text, regions) {
 }
 
 export function classifyInWorker(text, regions) {
+  if (process.env.PUBLIC_DEMO_MODE === 'true') return Promise.resolve(fallback(text, 'Public portfolio demo mode disables local ML inference; deterministic and structural detectors remain active.'));
   const job = queue.then(() => runOne(text, regions));
   queue = job.then(() => undefined, () => undefined);
   return job;

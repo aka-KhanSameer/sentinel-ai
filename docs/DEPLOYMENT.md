@@ -1,138 +1,91 @@
-# Deployment guide — Vercel + Render + PostgreSQL
+# Free portfolio deployment — Vercel + Render
 
-This repository is a static frontend plus one long-running Node.js API. Vercel hosts only the static frontend; file uploads go directly from the browser to the Render service. They do not pass through a Vercel Function. The Node API enforces the existing 5 MiB upload cap and parser limits.
+This is a hobby demonstration with a hard $0/month hosting target. The intended layout is a static frontend on Vercel Hobby and a Node.js API on Render Free. The API runs in explicitly labelled `PUBLIC_DEMO_MODE`: deterministic rules and document-structure checks only. It does **not** load the project’s 739 MB ProtectAI DeBERTa model. Keyword/rule matching is not described as AI. No managed database or persistent disk is used.
 
-Render terminates public TLS before forwarding requests to the service. The service should use its HTTPS custom domain externally and the Render-provided `X-Forwarded-For` only for per-process rate-limit client identification; [Render documents its proxy/client-IP behavior](https://render.com/articles/how-render-handles-ddos-attacks).
+## Current status
 
-Deployment has not been performed or live-verified. Do not treat the hosted service as ready until the checklist at the end passes.
+- GitHub source: [`aka-KhanSameer/sentinel-ai`](https://github.com/aka-KhanSameer/sentinel-ai), branch `main`.
+- No Vercel project or Render service has been created yet. Creating a $0 static project and $0 Free web service is in scope; do not select paid compute, attach a disk, create a paid database, add payment details, or start a trial.
+- Frontend/API, CORS, health checks, and live uploads are not yet verified. Update this section after completing the live acceptance checks.
 
-## Required accounts and resources
+## Why the full classifier is off in the free deployment
 
-Create or connect:
+Render Free currently provides 0.1 CPU and 512 MB RAM, spins down after 15 minutes idle, loses local files on restart/redeploy/spindown, and has no persistent disk. The pinned DeBERTa ONNX file alone is about 739 MB. A current smaller candidate, `nodd-repo/prompt-injection` v3, advertises an 18.58 MB int8 ONNX artifact under Apache-2.0 with a Transformers.js interface, but its reported test set is only 52 items and has not been benchmarked or integrated into Sentinel. Another compact candidate, ZeroLeaks Shield Small (118 MB int8 ONNX), uses CC BY-NC 4.0 weights, so it is not selected for this public portfolio deployment. We will not silently switch models or infer that a model is reliable or compatible based on size alone.
 
-1. A Git provider repository containing this project, connected to both Vercel and Render.
-2. A Vercel project for the static frontend.
-3. A Render Node.js Web Service and a Render PostgreSQL database in the same region/workspace.
-4. A custom domain under one registrable domain with two HTTPS hostnames, for example `sentinel.example.com` (Vercel) and `api.example.com` (Render). This keeps browser API calls same-site while remaining cross-origin. The default `vercel.app` and `onrender.com` domains are different sites; browsers may block the API's session cookie as a third-party cookie, breaking private history.
-5. A Render persistent disk mounted at `/var/data`, sized at **at least 2 GiB** for the pinned classifier weights (about 740 MB), download staging, and English OCR data if enabled. Use a service plan with **at least 4 GiB RAM** for the first model-enabled trial and one concurrent scan. The full model startup/RSS profile has not been measured against a Render plan; this is a conservative starting target, not verified compatibility. Increase it if live metrics show memory pressure.
+References: [Render Free limits](https://render.com/docs/free), [Render compute plans](https://render.com/docs/compute-plans), [nodd model card](https://huggingface.co/nodd-repo/prompt-injection), [ZeroLeaks Shield Small model card and license](https://huggingface.co/ZeroLeaks/shield-small).
 
-The project is already published on GitHub at `https://github.com/aka-KhanSameer/sentinel-ai` on branch `main`. Connect that existing repository to Vercel and Render; do not initialize another repository or push a generated starter commit. The latest verified local commit is `9223716` (`Initial Sentinel AI project`). Before deploying, confirm the intended commit is present in each provider's deployment source and that the repository remains private if that is your preference.
+## Create the Vercel frontend (Hobby, $0)
 
-The `.gitignore` excludes `.env`, `models/`, and the generated frontend runtime config. Review `git status` before pushing; never add database URLs, model secrets, uploaded documents, or locally generated scan data.
+1. Sign in to the existing Vercel Hobby workspace and import the existing private GitHub repository `aka-KhanSameer/sentinel-ai`. Do not create a second project if `sentinel-ai` already appears in the workspace.
+2. Select the repository root (`.`), branch `main`, Framework Preset **Other**, install command `npm ci`, build command `npm run build:frontend`, and output directory `frontend` (also defined by `vercel.json`).
+3. Do not add secrets. `PUBLIC_API_BASE_URL` is public build-time config. After creating the Render service, set it to `https://<actual-render-host>/api/v1` and redeploy the frontend.
+4. Keep only the default HTTPS `vercel.app` domain for this portfolio demo. Vercel serves static files; uploads go directly from the browser to Render and bypass Vercel Functions.
 
-The Render **Node** runtime downloads the pinned model revision if absent, verifies each downloaded file against upstream checksums, runs migrations before deploy, and starts the server. If download or migration fails, deployment fails. The classifier is required in this production configuration; readiness stays unavailable and scans fail with HTTP 503 if inference initialization fails. This prevents production from appearing healthy in rules-only fallback mode. Do not select Render's Docker runtime for this setup: the repository Dockerfile is intended for local Docker and does not run the production model-download or migration steps.
+## Create the Render API (Free, $0)
 
-## Vercel frontend
+1. In Render, create one Web Service from the existing private GitHub repository, branch `main`. Choose the **Node** runtime (not Docker), Oregon or another available region, and the **Free: $0 / 512 MB** compute option. If Free is unavailable without adding payment details, stop and report that account restriction; do not choose a paid plan or trial.
+2. Build Command: `npm ci`
+3. Start Command: `npm start`
+4. Health Check Path: `/api/v1/readiness`
+5. Do not attach a disk. Do not create PostgreSQL or Key Value. Do not configure a pre-deploy migration command.
+6. Configure these environment values:
 
-In Vercel, import the repository and configure:
-
-- Framework Preset: **Other**
-- Root Directory: repository root (`.`)
-- Install Command: `npm ci`
-- Build Command: `npm run build:frontend`
-- Output Directory: `frontend`
-- Production environment variable: `PUBLIC_API_BASE_URL=https://api.example.com/api/v1` (replace with the actual Render custom domain)
-
-The build writes `frontend/runtime-config.js`, exposing only the public API URL. Do not put secrets in this variable. Vercel serves static files; it does not host the Node API or run upload functions. After adding/updating the variable, trigger a new deployment.
-
-Set the Vercel custom domain (for example `sentinel.example.com`) and complete the DNS instructions shown in its dashboard. HTTPS must show active before testing browser cookies.
-
-## Render API and database
-
-Create a Render PostgreSQL database, then create a Web Service from the same repository, in the **same region** as the database. Explicitly choose the **Node** runtime even though the repository also contains a Dockerfile. Set:
-
-- Build Command: `npm ci`
-- Start Command: `if [ ! -s "$SENTINEL_MODEL_DIR/onnx/model.onnx" ]; then npm run model:download; fi && npm start`
-- Pre-Deploy Command: `npm run db:migrate`
-- Health Check Path: `/api/v1/readiness`
-- Persistent Disk: mount path `/var/data`, sized for model and OCR artifacts; do not mount over the application directory.
-- Custom Domain: `api.example.com` (replace with your domain), then configure the DNS record Render provides and wait for HTTPS certificate activation.
-
-Add these environment variables in Render (do not commit actual values):
-
-| Variable | Value |
+| Key | Value |
 |---|---|
 | `NODE_ENV` | `production` |
 | `HOST` | `0.0.0.0` |
-| `PORT` | Leave unset; Render supplies it |
-| `DATABASE_URL` | Render PostgreSQL **internal** connection URL, preferably linked through the Render dashboard |
-| `DATABASE_SSL` | `disable` for the internal same-region URL. For external connections use `require`; never use `disable` with an external URL. |
-| `REQUIRE_DATABASE` | `true` (prevents readiness and scans when PostgreSQL is absent or migrations are missing) |
-| `CORS_ORIGINS` | Exact Vercel custom origin, e.g. `https://sentinel.example.com`; no trailing slash. Add the exact Vercel preview origin only if previews must call production. |
-| `REQUIRE_LOCAL_CLASSIFIER` | `true` |
-| `SENTINEL_MODEL_DIR` | `/var/data/sentinel-deberta-v3-prompt-injection-v2` |
-| `SENTINEL_ML_THRESHOLD` | `0.5` |
-| `SENTINEL_ML_MAX_CHUNKS` | `256` |
-| `SENTINEL_ML_TIMEOUT_MS` | `120000` |
-| `MAX_UPLOAD_BYTES` | `5242880` |
-| `MAX_TEXT_BYTES` | `1048576` |
+| `PUBLIC_DEMO_MODE` | `true` |
+| `REQUIRE_LOCAL_CLASSIFIER` | `false` |
+| `REQUIRE_DATABASE` | `false` |
+| `CORS_ORIGINS` | Exact deployed Vercel origin, e.g. `https://sentinel-ai.vercel.app` (replace with the actual hostname; no trailing slash) |
+| `MAX_UPLOAD_BYTES` | `2097152` (2 MiB, below the application’s default limit for the constrained free instance) |
+| `MAX_TEXT_BYTES` | `262144` |
 | `MAX_PROCESSING_MS` | `20000` |
-| `MAX_CONCURRENT_SCANS` | `1` initially; raise only after load/memory testing |
+| `MAX_CONCURRENT_SCANS` | `1` |
+| `PARSER_OLD_HEAP_MB` | `192` |
+| `PARSER_YOUNG_HEAP_MB` | `32` |
 | `RATE_LIMIT_WINDOW_MS` | `60000` |
-| `RATE_LIMIT_REQUESTS` | `30` |
-| `TRUST_PROXY` | `true` on Render so process-local rate limits key on the client address forwarded by Render; do not trust this header when bypassing Render's edge proxy |
+| `RATE_LIMIT_REQUESTS` | `10` |
+| `TRUST_PROXY` | `true` |
 | `SESSION_REPORT_TTL_MS` | `900000` |
-| `MAX_SESSION_REPORTS` | `50` |
-| `DATABASE_POOL_MAX` | `5` |
-| `DATABASE_CONNECT_TIMEOUT_MS` | `3000` |
-| `DATABASE_QUERY_TIMEOUT_MS` | `5000` |
-| `TESSERACT_LANG_PATH` | `/var/data/tessdata` |
-| `TESSERACT_LANG` | `eng` |
+| `MAX_SESSION_REPORTS` | `10` |
 
-If OCR is desired, download and verify English tessdata into `/var/data/tessdata` using `npm run ocr:download` with `TESSERACT_LANG_PATH` set to that path. OCR is optional; the UI/API must report unavailable OCR explicitly if it is absent. This deployment guide does not configure extra languages.
+Leave `DATABASE_URL`, model paths, OCR paths, and `PORT` unset. Render supplies `PORT`; model and OCR are unavailable in this deployment. No migration runs because no database exists.
 
-The server persists only scan metadata in PostgreSQL, scoped to a random browser session hash and deleted after 30 days during scan inserts. It does not persist document contents or findings. Full reports are held in bounded server memory for 15 minutes, so they may disappear on restart or when a user reaches another instance. Do not increase instances or use this as multi-tenant storage without redesigning report storage and authentication. There are no accounts/user identities; session cookies are private-browser pseudonyms, not authentication.
+7. After Render shows the service URL and a successful deploy, use its exact `onrender.com` URL in the Vercel `PUBLIC_API_BASE_URL`. Redeploy Vercel. Copy the final Vercel production origin into Render `CORS_ORIGINS` and save/redeploy the API if the actual hostname differs from what was initially entered. CORS allows credentials only from explicitly configured origins.
 
-## Database migration and connectivity
+## API behavior and demo limitations
 
-The Render start command runs `npm run db:migrate` before `npm start`. Migrations are checksum-verified and use a PostgreSQL advisory lock. For a manual migration from a trusted machine, set `DATABASE_URL` to the database's external URL and `DATABASE_SSL=require`, then run:
+- `/api/v1/health` is liveness. `/api/v1/readiness` reports API readiness; `/api/v1/capabilities` exposes `public_demo: true`, `ml_classifier: false`, rules-only mode, configured upload cap, and OCR availability.
+- Scan JSON carries `public_demo: true`, `summary.public_demo: true`, `rules_only_fallback`, and a limitation explaining that no ML classifier was loaded. The UI displays a portfolio-demo banner.
+- Files are parsed in memory; uploads and document contents are never stored. No database is provisioned. Session summaries and full reports are volatile, expire, and disappear after restart/spindown. With default Vercel and Render domains, cookies are cross-site; browser privacy settings can block session history even while the immediate upload response works. A custom same-site domain could improve cookie behavior but is outside this no-domain setup.
+- Render Free may cold-start after inactivity (about a minute), restarts can happen, and included usage limits apply. Render states free web services are intended for hobby/testing and not production.
+- PDF/DOCX/XLSX/PPTX parsing depends on the existing parser safeguards. OCR language data is not installed, so image OCR is unavailable and must be reported as such. Free RAM/CPU may still prevent some large or complex files from scanning; the 2 MiB upload cap and reduced parser-worker heap are safeguards, not a guarantee. If a live upload fails or the service runs out of memory, document that limitation and do not describe the workflow as verified.
+- Do not upload sensitive documents. This service has no accounts, auth, durable evidence storage, or production security guarantees.
 
-```sh
-npm ci
-npm run db:migrate
-```
+Render Free usage is currently documented as 750 instance hours per workspace/month; excess outbound bandwidth/build minutes may suspend services when no payment method is present, while adding a payment method can expose overage billing. Keep the account unconfigured for payment and do not enable billable services. See [Render's current Free plan rules](https://render.com/docs/free).
 
-Do not paste or commit the connection URL. `GET https://api.example.com/api/v1/readiness` performs a bounded connection/migration-table check and returns only `ready`, storage mode, and a generic reason; it never returns the hostname, username, password, or URL. `GET /api/v1/health` is liveness only and does not prove database or classifier readiness.
+## Test and live verification
 
-## Local pre-deployment checks
-
-```sh
-npm ci
-npm run build:frontend
-npm test
-npm run eval
-npm run eval:northwind
-npm run eval:pdf-fixture
-```
-
-Production build configuration can be checked without secrets:
+Local checks (from repository root):
 
 ```powershell
-$env:PUBLIC_API_BASE_URL = 'https://api.example.com/api/v1'
+npm ci
+npm test
 npm run build:frontend
-Get-Content frontend/runtime-config.js
+npm run eval
+npm run eval:northwind
 ```
 
-The generated file must contain only the configured public API base. The root `vercel.json` already sets the install, build, and output-directory configuration.
+A local fixture evaluation requiring a running API can be run with `npm run eval:pdf-fixture` after starting the backend. Do not report a live evaluation result based on unit tests or local fixtures.
 
-## Live acceptance checklist
+After deployment, verify and record:
 
-After both services deploy and custom-domain HTTPS is active:
+1. Public frontend URL returns successfully and the demo banner is visible.
+2. Render `/api/v1/health` returns HTTP 200.
+3. Render `/api/v1/readiness` returns HTTP 200 and `storage: "session_ephemeral"`.
+4. Render `/api/v1/capabilities` reports `public_demo: true`, `ml_classifier: false`, and `rules-only fallback`.
+5. Upload an actual PDF through the public frontend, wait for any cold start, and confirm the UI shows a report with PDF parser status, actual source evidence, and rules-only mode. A live scan is not proof that the classifier works.
+6. Check logs for parser/OOM failures without logging document content. Never expose environment values in screenshots or logs.
 
-1. Open `https://api.example.com/api/v1/health` and confirm HTTP 200.
-2. Open `https://api.example.com/api/v1/readiness` and confirm HTTP 200, PostgreSQL storage, and classifier readiness.
-3. Open `https://sentinel.example.com`; confirm the browser console has no CSP, CORS, or mixed-content errors and the UI reports local ML configured.
-4. Upload a known benign PDF and a known prompt-injection test PDF through the live UI. Confirm each produces a report with PDF source locations, local classifier mode, and a nonzero classifier coverage ratio.
-5. Refresh the page and confirm only the same browser session sees its metadata history. Confirm the full evidence report's documented in-memory expiry behavior.
-6. Check Render logs for successful migration/model verification and absence of document text. Never log or share database URLs.
-
-## Current blockers and limits
-
-- Vercel and Render dashboard access is authenticated. The private GitHub repository is connected and visible to Render. No Sentinel Vercel project, Render database/service, or custom domain is provisioned; production connectivity, database migration, HTTPS, and live upload have not been verified.
-- The classifier weights are excluded from Git. The documented Render start step fetches the pinned, checksum-verified artifact into a persistent disk; outbound access to Hugging Face and sufficient disk/memory must be confirmed in the selected plan.
-- The model has run locally, but no peak memory/concurrency benchmark on Render is available. The Render dashboard currently lists $85/month for a 2 CPU / 4 GB RAM service; a 2 GB persistent disk is $0.50/month. This is the documented conservative first-trial size, not verified runtime compatibility. Do not scale beyond one concurrent scan until measured.
-- The Render dashboard's free web-service option has 512 MB RAM and does not support persistent disks. It cannot meet this model-enabled deployment's documented 4 GB starting target or retain weights across deploys. Rules-only mode must not be used as a substitute. The user declined paid resources, so no Render service or database was created.
-- The paid configuration currently displayed in Render totals about $91.80/month before tax/other usage: $85 for the 4 GB service, $0.50 for a 2 GB disk, and $6.30 for a 256 MB PostgreSQL instance with 1 GB storage. No resources have been created or charges initiated.
-- Vercel shows the existing Hobby workspace, but no Sentinel project has been created. The static frontend and `PUBLIC_API_BASE_URL` are not deployed/configured. The user chose default provider hostnames for now; Vercel and Render hostnames are cross-site, so browser session cookies/history may fail when third-party cookies are blocked. No custom domain or DNS change was performed.
-- The app is a prototype without user authentication, account-level access controls, durable full reports, or multi-instance affinity. A random browser session cookie is not a substitute for authentication. Limit access to a demo audience; do not upload sensitive documents or treat it as a production security control.
-- Known detector limitations remain: the Northwind X-12 CJK attack was missed; the 40-item synthetic evaluation had one false positive and one false negative. These results do not establish real-world detection accuracy.
+Record dates, deployed URLs, response facts, sample filename, and whether the actual PDF upload succeeded. Mark anything not completed as unverified.

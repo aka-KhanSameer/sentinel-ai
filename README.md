@@ -53,6 +53,10 @@ The model is stored under the ignored `models/` directory. Local development doe
 
 References: [ProtectAI model card and Apache-2.0 license](https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2), [ProtectAI ONNX files at the pinned revision](https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2/tree/90c9989b1a342275dd0d1a95aad283c04e075671/onnx), [Transformers.js documentation](https://www.npmjs.com/package/@huggingface/transformers), [Tesseract.js local installation](https://github.com/naptha/tesseract.js/blob/master/docs/local-installation.md), and [official Tesseract tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast/tree/87416418657359cb625c412a48b6e1d6d41c29bd).
 
+## Free portfolio demo deployment
+
+The planned no-cost deployment uses Vercel Hobby for static files and Render Free for the API. Its API runs in `PUBLIC_DEMO_MODE=true` with `REQUIRE_LOCAL_CLASSIFIER=false` and `REQUIRE_DATABASE=false`. The frontend and API explicitly show that the deployment uses deterministic rules and document-structure checks only; it is **not AI classification**. The 739 MB local DeBERTa model is not included in Git and does not fit Render Free. Render Free provides 512 MB RAM, 0.1 CPU, ephemeral storage, and cold starts; uploads are therefore capped at 2 MiB and reports/history are volatile. Do not upload sensitive documents or use the demo as a safety control. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for setup and live-verification instructions.
+
 ## Limits and configuration
 
 - Uploads default to 5 MiB; text input defaults to 1 MiB.

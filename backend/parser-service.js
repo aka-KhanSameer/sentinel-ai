@@ -3,10 +3,16 @@ import { Worker } from 'node:worker_threads';
 export function parseInWorker(buffer, filename, mime, timeoutMs = 20_000) {
   return new Promise((resolve, reject) => {
     const bytes = Uint8Array.from(buffer);
+    const oldHeapMb = Number(process.env.PARSER_OLD_HEAP_MB || 384);
+    const youngHeapMb = Number(process.env.PARSER_YOUNG_HEAP_MB || 64);
+    if (!Number.isSafeInteger(oldHeapMb) || oldHeapMb < 64 || oldHeapMb > 1024 || !Number.isSafeInteger(youngHeapMb) || youngHeapMb < 16 || youngHeapMb > 256) {
+      reject(new Error('Parser worker heap limits are invalid.'));
+      return;
+    }
     const worker = new Worker(new URL('./extractor-worker.js', import.meta.url), {
       workerData: { bytes, filename, mime },
       transferList: [bytes.buffer],
-      resourceLimits: { maxOldGenerationSizeMb: 384, maxYoungGenerationSizeMb: 64, stackSizeMb: 8 },
+      resourceLimits: { maxOldGenerationSizeMb: oldHeapMb, maxYoungGenerationSizeMb: youngHeapMb, stackSizeMb: 8 },
     });
     let settled = false;
     const finish = (fn, value) => {
