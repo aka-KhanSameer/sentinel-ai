@@ -1,0 +1,8 @@
+{
+  "model_id": "protectai/deberta-v3-base-prompt-injection-v2",
+  "revision": "90c9989b1a342275dd0d1a95aad283c04e075671",
+  "license": "Apache-2.0",
+  "checkpoint": "model.safetensors",
+  "checkpoint_bytes": 737719272,
+  "checkpoint_sha256": "6521cb8d0ac08148c81464899c424e6148fcc62befa371089fa4061d8b6e0424"
+}

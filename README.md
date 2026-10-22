@@ -109,12 +109,16 @@ The exact [prompt-injection PDF fixture](tests/fixtures/prompt_injection_test_su
 
 The supplied `vendor_review_northwind_q3.pdf` now has parser and multipart upload regression tests. PDF parsing recovers the custom `/ReviewNotes` key, Keywords, page 1 comment, page 6 link URI, page 3 off-page text, page 4 small/light/covered text and table-cell spans. The direct parser/rule scan and API regression each verify 19 of the 20 answer-key targets (95% payload detection); X-12 is the remaining miss. X-02 is retained through the API after preserving `target_token` on deduplicated supporting findings. The X-12 CJK instruction is not reconstructed by PDF.js; only an opaque glyph sequence and an ASCII token byte sequence are observable. Tests check each of the eight source hard-negative sentences against deterministic rules (0/8 flagged in those isolated passages); a final API-level HN false-positive rate, precision, and F1 have not been measured, so none are reported. A separate ten-item paraphrase/benign suite is available via `npm run eval:northwind`; its rules-only result was TP=4, FN=2, TN=4, FP=0 (precision 1.00, recall 0.67, F1 0.80, FPR 0.00). This demonstrates remaining paraphrase misses (U-01 and U-03), not general performance. See the [payload-level audit](docs/NORTHWIND_PDF_EVALUATION.md) and [TASKS.md](TASKS.md) for results and remaining work. This is not a product accuracy result.
 
+## Local PyTorch / ZeroGPU feasibility experiment
+
+The exact pinned ProtectAI Safetensors checkpoint now has a separate CPU PyTorch/Transformers parity experiment. It is not part of the production runtime and does not mean ZeroGPU deployment has been tested. See [Phase 1 results and reproduction steps](docs/ZEROGPU_PHASE1.md), including per-sample scores and known pipeline false-positive/false-negative cases.
+
 ## Docker
 
 With Docker available, `docker compose up --build` serves the same dashboard/API on port 8080. It runs as non-root with a read-only filesystem, dropped capabilities, and a no-exec temporary filesystem. The ignored local `models/` directory is mounted read-only for optional OCR/model data. The Docker image was not built in the current environment.
 
 ## Deployment and privacy
 
-No deployment has been performed. Vercel static build configuration and Render/PostgreSQL deployment instructions are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Public use remains blocked on owner-created hosting/database resources, custom same-site domains, model disk/RAM validation, and live upload verification. This remains a demo without account authentication, durable full reports, multi-instance affinity, or distributed rate limiting.
+The portfolio frontend and API are deployed on Vercel and Render; the current Render service is an explicitly labelled rules-only demo with ephemeral history. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for live status and the remaining production limitations. The application has no account authentication, durable reports, multi-instance affinity, or distributed rate limiting.
 
 See [SECURITY.md](SECURITY.md) and the [architecture](docs/ARCHITECTURE.md), [API](docs/API.md), [threat model](docs/THREAT_MODEL.md), [evaluation](docs/EVALUATION.md), [deployment](docs/DEPLOYMENT.md), and [privacy](docs/PRIVACY.md) documents.

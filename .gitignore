@@ -4,6 +4,7 @@ node_modules/
 !.env.example
 *.log
 coverage/
+.pytest_cache/
 dist/
 .vercel/
 .turbo/
@@ -39,4 +40,9 @@ temp/
 *.jpeg
 *.webp
 !tests/fixtures/*.pdf
+experiments/zerogpu-pytorch/.venv/
+experiments/zerogpu-pytorch/.cache/
+experiments/zerogpu-pytorch/model/
+experiments/zerogpu-pytorch/**/__pycache__/
+experiments/zerogpu-pytorch/**/*.py[cod]
 .DS_Store

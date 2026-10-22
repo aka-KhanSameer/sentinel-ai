@@ -27,7 +27,7 @@
 - [x] Expand a separate synthetic held-out evaluation set to 40 diverse benign/malicious examples with multilingual, hidden-content, and obfuscated cases.
 - [x] Add benign, obfuscation, known false-negative, parser-failure, and upload workflow tests.
 - [x] Measure and report actual rules-only fallback metrics (see docs/EVALUATION.md); do not present them as generalizable performance.
-- [x] Re-ran and recorded combined local-ML pipeline metrics (n=40; precision 0.741, recall 1.00, F1 0.851, FPR 0.35); false positives on benign discussion are a documented blocker before operational use.
+- [x] Re-ran the current combined local-ML pipeline (n=40; TP=19, FP=1, TN=19, FN=1; precision/recall/F1 0.95, FPR/FNR 0.05); the Spanish miss and benign quoted-instruction false positive are documented in `docs/EVALUATION.md`.
 - [x] Upload and evaluate the exact six-page PI-001–PI-038/BEN-001–BEN-006 PDF fixture against its page-6 answer key; retain payload-specific source evidence/offsets in `docs/PDF_FIXTURE_EVALUATION.json` and parser/API regression coverage in `tests/`.
 
 ## Priority 5 — product/docs
@@ -36,7 +36,15 @@
 - [x] Update README, SECURITY, API/architecture/threat/evaluation/deployment/privacy docs, CI, Docker build recipe, and this checklist.
 - [ ] Docker image build is unverified because Docker is not installed in this environment.
 
-Workspace constraints: the required `rtk` command is not installed. Python is not installed. Implementation uses Node.js 24 and pinned npm dependencies. No public deployment was performed.
+Workspace constraints at the initial implementation: `rtk` and Python were not on PATH. This session used the bundled Python 3.12 runtime only for the isolated local PyTorch feasibility experiment; production remains Node.js with pinned npm dependencies. No live service was changed by that experiment.
+
+## Hugging Face ZeroGPU local experiment — Phase 1 (2026-10-22)
+
+- [x] Downloaded and SHA-256 verified the exact pinned ProtectAI `model.safetensors` checkpoint (Apache-2.0) without adding files to production model/runtime paths.
+- [x] Added isolated PyTorch/Transformers CPU reference, exact Sentinel-style UTF-16 chunking, baseline and scanner-adjudication scripts, tests, and per-sample result JSON under `experiments/zerogpu-pytorch/`.
+- [x] Benchmarked all 40 existing evaluation samples: 0/40 model label disagreements, 0/40 pipeline decision disagreements, 40/40 chunk-boundary matches; full pipeline metrics remained TP=19, FP=1, TN=19, FN=1.
+- [x] Documented the multilingual false negative, benign quoted-attack false positive, measured score deltas and CPU latency in `docs/ZEROGPU_PHASE1.md`.
+- [ ] Phase 2 ZeroGPU Gradio/GPU compatibility, hosting, queue/quota behavior, and deployment remain untested. Do not route the live API to ZeroGPU until those checks pass.
 
 ## Northwind PDF forensic follow-up (2026-10-22)
 
