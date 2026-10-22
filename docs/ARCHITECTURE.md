@@ -1,0 +1,11 @@
+# Architecture
+
+The project keeps its current Node.js HTTP application and static dashboard. `backend/server.js` owns HTTP validation, response schemas, configured limits, ephemeral reports, and API capabilities. Upload bytes are passed to `backend/parser-service.js`, which runs `backend/extractor-worker.js` under a timeout and worker heap cap. `backend/extractor.js` selects parsers by file signature; ZIP-based Office documents are prevalidated and expanded in memory only. No temporary files or subprocess execution are used.
+
+PDF.js extracts text items with page and position; Mammoth extracts DOCX text while bounded Office XML inspection supplies hidden/notes evidence; ExcelJS reads XLSX values/formulas as text; PPTX text and selected formatting indicators come from slide/note XML; Sharp bounds image decoding and normalizes pixels; Tesseract.js produces OCR text and word boxes from locally configured tessdata.
+
+`backend/scanner.js` normalizes for detection while retaining original evidence offsets. Versioned deterministic rules, safe encoded-text checks, Unicode confusable checks, and structural evidence are combined with optional model findings. Risk aggregation merges overlapping evidence ranges so independent detectors do not multiply score for the same passage; findings retain separate provenance. Scores are prioritization estimates, not probabilities.
+
+`backend/classifier.js` lazily loads the pinned ProtectAI DeBERTa ONNX model through Transformers.js with remote loading disabled. Tokenizer-derived overlapping chunks preserve source offsets. `backend/classifier-service.js` serializes requests in a worker and falls back to rules/structure on absent weights, failure, or timeout. The model is optional and stored outside version control. The model downloader is `scripts/download-model.js`.
+
+`datasets/evaluation.json` is synthetic held-out evaluation data; there is no project training set. `scripts/evaluate.js` reports actual measured results and active detector mode.

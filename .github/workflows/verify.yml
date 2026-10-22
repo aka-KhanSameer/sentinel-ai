@@ -1,0 +1,16 @@
+name: verify
+on:
+  push:
+  pull_request:
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - run: npm run eval
+      - run: node --check backend/server.js && node --check backend/scanner.js && node --check frontend/app.js
