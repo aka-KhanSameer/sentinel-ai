@@ -1,5 +1,6 @@
 import { Worker } from 'node:worker_threads';
 import { getClassifierStatus } from './classifier.js';
+import { classifyWithZeroGpu, zeroGpuConfiguration } from './zerogpu-classifier.js';
 
 const timeoutMs = Math.max(1_000, Number(process.env.SENTINEL_ML_TIMEOUT_MS || 120_000));
 let worker;
@@ -55,7 +56,8 @@ function runOne(text, regions) {
 }
 
 export function classifyInWorker(text, regions) {
-  if (process.env.PUBLIC_DEMO_MODE === 'true') return Promise.resolve(fallback(text, 'Public portfolio demo mode disables local ML inference; deterministic and structural detectors remain active.'));
+  if (zeroGpuConfiguration().configured) return classifyWithZeroGpu(text, regions);
+  if (process.env.PUBLIC_DEMO_MODE === 'true') return Promise.resolve(fallback(text, 'Public portfolio demo mode has no configured ML service; deterministic and structural detectors remain active.'));
   const job = queue.then(() => runOne(text, regions));
   queue = job.then(() => undefined, () => undefined);
   return job;

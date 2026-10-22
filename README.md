@@ -7,9 +7,9 @@ Sentinel AI scans untrusted text and documents for prompt-injection indicators b
 - **Text formats:** TXT, Markdown, CSV, JSON, HTML, XML, and EML.
 - **Documents:** PDF text extraction (up to 100 pages), DOCX paragraphs/comments/notes, XLSX cell values/formulas/hidden rows or sheets, and PPTX slide and speaker-note text.
 - **Images:** PNG, JPEG, and WebP OCR through Tesseract.js when local English tessdata is installed. OCR word bounding boxes are retained. OCR currently handles images; raster-only/scanned PDF pages are reported as a limitation, not silently treated as empty clean text.
-- **Detectors:** versioned rules, safe decoding checks for Base64 and percent escapes, selected Unicode homoglyph folding, hidden/tiny/low-contrast structural indicators where extracted, and optional local ML classification.
+- **Detectors:** versioned rules, safe decoding checks for Base64 and percent escapes, selected Unicode homoglyph folding, hidden/tiny/low-contrast structural indicators where extracted, and optional local or remote ML classification.
 - **Reports:** risk category/score, recommendation, evidence, detector provenance, offsets, line/page/paragraph/sheet/slide/OCR locations where available, parser limitations, and downloadable JSON.
-- **API/UI:** local REST API and responsive browser dashboard. The dashboard and `/api/v1/capabilities` identify whether the app is using the **rules-only fallback** or a configured local classifier.
+- **API/UI:** local REST API and responsive browser dashboard. The dashboard and `/api/v1/capabilities` identify rules-only fallback, configured local inference, or optional quota-limited Hugging Face ZeroGPU inference.
 
 PDF font color and full layout are not inspected. Office macros, scripts, embedded objects, and formulas are never executed; formulas are scanned as text. ZIP archive inspection is not offered, although Office containers are read under strict entry, expansion, ratio, traversal, and timeout checks. Uploaded content is never fetched from URLs, written to temporary files, or executed.
 
@@ -55,7 +55,7 @@ References: [ProtectAI model card and Apache-2.0 license](https://huggingface.co
 
 ## Free portfolio demo deployment
 
-The planned no-cost deployment uses Vercel Hobby for static files and Render Free for the API. Its API runs in `PUBLIC_DEMO_MODE=true` with `REQUIRE_LOCAL_CLASSIFIER=false` and `REQUIRE_DATABASE=false`. The frontend and API explicitly show that the deployment uses deterministic rules and document-structure checks only; it is **not AI classification**. The 739 MB local DeBERTa model is not included in Git and does not fit Render Free. Render Free provides 512 MB RAM, 0.1 CPU, ephemeral storage, and cold starts; uploads are therefore capped at 2 MiB and reports/history are volatile. Do not upload sensitive documents or use the demo as a safety control. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for setup and live-verification instructions.
+The no-cost deployment uses Vercel Hobby for static files and Render Free for the API. Its baseline runs in `PUBLIC_DEMO_MODE=true` with `REQUIRE_LOCAL_CLASSIFIER=false` and `REQUIRE_DATABASE=false`; without the optional ZeroGPU settings, scans use deterministic rules and document-structure checks only and are **not AI classifications**. An isolated Gradio adapter for the exact pinned DeBERTa checkpoint has been prepared, but it is not live until a Hugging Face account creates an eligible free ZeroGPU Space and its private URL/read token are configured in Render. ZeroGPU is a shared, quota-limited best-effort service; failures fall back and are disclosed. The 739 MB local model is not included in Git and does not fit Render Free. Render Free has low CPU/RAM, ephemeral storage, and cold starts; uploads are therefore capped at 2 MiB and reports/history are volatile. Do not upload sensitive documents or use the demo as a safety control. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for setup and live-verification instructions.
 
 ## Limits and configuration
 
@@ -111,7 +111,7 @@ The supplied `vendor_review_northwind_q3.pdf` now has parser and multipart uploa
 
 ## Local PyTorch / ZeroGPU feasibility experiment
 
-The exact pinned ProtectAI Safetensors checkpoint now has a separate CPU PyTorch/Transformers parity experiment. It is not part of the production runtime and does not mean ZeroGPU deployment has been tested. See [Phase 1 results and reproduction steps](docs/ZEROGPU_PHASE1.md), including per-sample scores and known pipeline false-positive/false-negative cases.
+The exact pinned ProtectAI Safetensors checkpoint has a separate CPU PyTorch/Transformers parity experiment and an isolated Gradio ZeroGPU adapter under `experiments/zerogpu-space/`. The adapter has not yet been run on Hugging Face ZeroGPU. See [Phase 1 results and reproduction steps](docs/ZEROGPU_PHASE1.md), including per-sample scores and known pipeline false-positive/false-negative cases, and the [ZeroGPU setup and deployment gate](docs/DEPLOYMENT.md#optional-hugging-face-zerogpu).
 
 ## Docker
 

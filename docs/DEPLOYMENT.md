@@ -1,6 +1,6 @@
 # Free portfolio deployment — Vercel + Render
 
-This is a hobby demonstration with a hard $0/month hosting target. The intended layout is a static frontend on Vercel Hobby and a Node.js API on Render Free. The API runs in explicitly labelled `PUBLIC_DEMO_MODE`: deterministic rules and document-structure checks only. It does **not** load the project’s 739 MB ProtectAI DeBERTa model. Keyword/rule matching is not described as AI. No managed database or persistent disk is used.
+This is a hobby demonstration with a hard $0/month hosting target. The live baseline is a static frontend on Vercel Hobby and a Node.js API on Render Free. Until the optional Hugging Face ZeroGPU section below is completed, the API uses deterministic rules and document-structure checks only; it does **not** load the project's 739 MB ProtectAI DeBERTa model. Rule matching is not described as AI. No managed database or persistent disk is used.
 
 ## Current status
 
@@ -9,8 +9,44 @@ This is a hobby demonstration with a hard $0/month hosting target. The intended 
 - Render Free API: [https://sentinel-ai-api-lduk.onrender.com](https://sentinel-ai-api-lduk.onrender.com), service `sentinel-ai-api`, deployed from commit `4a3a905` (deployment `dep-dbcu9f3l550s73d4sh10`). The selected resources are free tier; no database, disk, paid compute, or trial was created.
 - Live checks on 2026-10-22: frontend loaded and fetched capabilities; `/api/v1/health` returned `{"status":"ok"}`; `/api/v1/readiness` returned ready with `storage: "session_ephemeral"`; capabilities reported public demo mode, no ML classifier, no OCR, and a 2 MiB upload limit. The exact Vercel origin is configured in Render CORS.
 - A real browser upload of `tests/fixtures/prompt_injection_test_suite.pdf` completed through the public frontend. The UI rendered a PDF report with parser status completed, overall analysis partial, rules-only mode, 22 findings, and risk 100/100. This is an end-to-end workflow smoke check, not a measured per-payload accuracy result. The uploaded file is processed in memory; the test does not verify persistence or classifier quality.
-- Local verification on 2026-10-22: `npm test` passed 30/30 tests; `PUBLIC_API_BASE_URL=https://sentinel-ai-api-lduk.onrender.com/api/v1 npm run build:frontend` passed. The frontend build emitted the configured API URL.
+- Current local verification (2026-10-22): 37/37 Node tests passed, including a mocked queued-inference actual-PDF upload flow; the frontend build passed; `npm run eval` measured the existing 40-sample local ONNX pipeline at precision/recall/F1 0.95 and FPR 0.05; `npm run eval:northwind` retained its 10-item rules-only result (precision 1.00, recall 0.67, F1 0.80, FPR 0.00); Phase 1 plus ZeroGPU-adapter Python tests passed 8/8. These local tests do not prove hosted ZeroGPU inference.
 - PostgreSQL is not provisioned, so no production database migration was run. Session report/history storage is ephemeral and may disappear after a restart or spin-down.
+
+## Optional Hugging Face ZeroGPU
+
+**Current state: adapter and backend proxy are prepared and tested locally; no Hugging Face Space is created or live.** Until a Space is created and its two Render environment settings are added, the current Render/Vercel deployment remains the existing rules-only demo. Vercel still sends uploads directly to Render. Render parses the file locally, then (only when configured) sends extracted text and source ranges to the private Hugging Face Space. The Space returns the original pinned ProtectAI model's per-chunk scores; source mapping, rules, structure, deduplication, and report generation remain in Sentinel's Node API.
+
+The Phase 1 comparison used the exact ProtectAI checkpoint at `90c9989b1a342275dd0d1a95aad283c04e075671`, SHA-256 `6521cb8d0ac08148c81464899c424e6148fcc62befa371089fa4061d8b6e0424`, with Apache-2.0 license and `DebertaV2ForSequenceClassification` architecture. The same-revision PyTorch CPU path matched the production ONNX classifier's labels and final scanner decisions on all 40 synthetic evaluation items (score differences were small but nonzero). The separate Space app verifies the checkpoint digest, model labels, architecture, and license at startup. No ZeroGPU hardware inference has yet been demonstrated in this account.
+
+Current Hugging Face documentation says a personal account in good standing with verified email and age over 30 days can host up to two ZeroGPU Spaces free. ZeroGPU supports Gradio and PyTorch 2.8+, uses 48 GB VRAM in its default large allocation, and has a **5 GPU-minute/day free account quota** that resets 24 hours after first use. Queues and account quota affect service; this is a portfolio experiment, not a reliable always-on classifier. Authenticated requests use the Hugging Face token owner's quota. No paid plan, billing credits, paid GPU, or other paid resource is required or should be enabled. See [ZeroGPU compatibility, quota, and eligibility](https://huggingface.co/docs/hub/spaces-zerogpu) and [Spaces queue API](https://huggingface.co/docs/hub/en/spaces-api-endpoints).
+
+### Manual Hugging Face setup
+
+1. Sign into a **personal free** Hugging Face account. Confirm the email is verified and the account is at least 30 days old. If the account is not eligible for free ZeroGPU hosting, stop; do not start a trial or choose paid hardware.
+2. Create one new Space named `sentinel-ai-zerogpu`, set visibility to **Private**, select **Gradio**, Python **3.12**, and the **ZeroGPU** shared hardware option (`zero-a10g` / ZeroGPU large). Do not select dedicated T4/L4/A10G hardware, subscribe, add billing credits, or attach paid storage. If Hugging Face presents a payment/upgrade screen, stop and leave the live demo unchanged.
+3. From the repository root, upload just the four files under `experiments/zerogpu-space/` to the Space repository root. The model is downloaded from its pinned public revision at Space startup; do not upload or commit model weights.
+
+   If using the Hugging Face CLI, install it in a separate local Python environment, sign in at the terminal's secure prompt (do not paste the token into ChatGPT), then run:
+
+   ```powershell
+   hf auth login
+   hf upload <your-namespace>/sentinel-ai-zerogpu experiments/zerogpu-space . --repo-type space
+   ```
+
+   Wait for the Space build to finish. Its initial startup downloads the pinned 738 MB checkpoint and verifies the digest. Confirm Space Settings still say private and ZeroGPU before proceeding.
+4. Create a Hugging Face fine-grained token that grants **read access only** to that private Space. Do not grant billing permissions. Add these in the existing Render service's Environment page (not Vercel and not GitHub):
+
+   | Key | Value |
+   |---|---|
+   | `HF_SPACE_URL` | `https://<your-namespace>-sentinel-ai-zerogpu.hf.space` |
+   | `HF_TOKEN` | Fine-grained read token for that private Space (secret) |
+
+   Save and redeploy the existing `sentinel-ai-api` service. Keep `PUBLIC_DEMO_MODE=true`, `REQUIRE_LOCAL_CLASSIFIER=false`, and all existing free-plan safeguards unchanged. Do not paste the token into chat, logs, a commit, or the Vercel project.
+5. `GET /api/v1/capabilities` should report `ml_provider: "huggingface_zerogpu"` and `ml_status: "remote_configured_unverified"`. This is configuration visibility only; it does not prove the Space is healthy or that inference works. Upload a non-sensitive PDF from the public frontend and verify the report's classifier mode, source-aligned finding/candidate offsets, and detector diagnostic `remote_zerogpu_classifier`. The report discloses that extracted text was sent to Hugging Face.
+
+The Render proxy has a 65-second queue timeout, sends no file bytes (only extracted text/regions), does not log document text or the token, rejects wrong model revisions and invalid offsets, and falls back to rules/structural analysis on HTTP errors, quota/queue failures, timeout, incompatible responses, or extracted text over 2 MiB. Fallback is represented in the scan API report and UI. One authenticated Render proxy shares the account owner's small daily quota across all visitors; on quota exhaustion, scans remain available as explicitly labelled rules-only fallback until the provider quota resets. Initial model download/startup, cold starts, public Render sleeping, queue wait, network availability, and quota all make this **best-effort**, not guaranteed. A request can time out and fall back even while the Space is still starting.
+
+Until those manual steps are completed and a live PDF scan is verified, the only confirmed live capability is the existing rules-only demo documented above. A mocked local queue test is not live ZeroGPU verification.
 
 ## Why the full classifier is off in the free deployment
 

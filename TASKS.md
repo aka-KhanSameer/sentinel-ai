@@ -44,7 +44,10 @@ Workspace constraints at the initial implementation: `rtk` and Python were not o
 - [x] Added isolated PyTorch/Transformers CPU reference, exact Sentinel-style UTF-16 chunking, baseline and scanner-adjudication scripts, tests, and per-sample result JSON under `experiments/zerogpu-pytorch/`.
 - [x] Benchmarked all 40 existing evaluation samples: 0/40 model label disagreements, 0/40 pipeline decision disagreements, 40/40 chunk-boundary matches; full pipeline metrics remained TP=19, FP=1, TN=19, FN=1.
 - [x] Documented the multilingual false negative, benign quoted-attack false positive, measured score deltas and CPU latency in `docs/ZEROGPU_PHASE1.md`.
-- [ ] Phase 2 ZeroGPU Gradio/GPU compatibility, hosting, queue/quota behavior, and deployment remain untested. Do not route the live API to ZeroGPU until those checks pass.
+- [x] Prepare an isolated minimal Gradio adapter for the same model revision, checkpoint digest, tokenizer, source-region chunking, and per-chunk scores. Add a Render-side private Space queue proxy with source-offset validation, timeout/queue/quota fallback, no document/token logging, and honest remote/fallback API/UI labels.
+- [x] Add Python core tests plus Node queue, timeout, model-identity, offset-validation, token-privacy, and actual-PDF upload-to-report tests against a local mock Gradio endpoint. `npm test` passed 37/37; ZeroGPU-space + Phase 1 Python tests passed 7/7; the frontend build and both existing evaluation commands passed.
+- [ ] Phase 2 deployment remains blocked on the user's Hugging Face account: confirm eligible free ZeroGPU hosting, create a private Gradio ZeroGPU Space, upload the four isolated adapter files, wait for the pinned model to load, create a fine-grained read-only Space token, and configure `HF_SPACE_URL`/`HF_TOKEN` in Render. No Space has been created, no secrets have been set, and the live API remains rules-only until this is complete.
+- [ ] Test actual ZeroGPU model startup/inference and scan a non-sensitive PDF through the public Vercel → Render → Hugging Face path. Validate graceful fallback with a real provider failure/quota response; local mock tests do not establish hardware behavior, live quota, cold-start timing, or service reliability.
 
 ## Northwind PDF forensic follow-up (2026-10-22)
 

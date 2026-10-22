@@ -45,4 +45,6 @@ experiments/zerogpu-pytorch/.cache/
 experiments/zerogpu-pytorch/model/
 experiments/zerogpu-pytorch/**/__pycache__/
 experiments/zerogpu-pytorch/**/*.py[cod]
+experiments/zerogpu-space/**/__pycache__/
+experiments/zerogpu-space/**/*.py[cod]
 .DS_Store
