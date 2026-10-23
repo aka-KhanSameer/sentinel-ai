@@ -54,6 +54,9 @@ test('Northwind regression PDF independently extracts metadata, annotations, lin
  assert.ok(parsed.structuralEvidence.some(x=>x.kind==='occluded_by_later_shape'&&x.text.includes('CANARY-X-08')));
  assert.ok(parsed.segments.some(s=>Number.isFinite(s.location.x)&&s.location.page===4&&parsed.text.slice(s.start,s.end).includes('CANARY-X-03')));
  assert.ok(parsed.diagnostics.some(x=>x.stage==='pdf.annotations_and_links'&&x.status==='completed'));
+ const appended=parsed.segments.filter(s=>s.location.part==='pdf_metadata'||['contents','uri','title','field_value','alternative_text','action'].includes(s.location.field));
+ assert.ok(appended.some(s=>s.location.field==='contents'),'fixture includes an annotation passage');assert.ok(appended.some(s=>s.location.part==='pdf_metadata'),'fixture includes appended metadata');
+ for(const segment of appended)assert.ok(parsed.analysisRegions.some(r=>r.start<=segment.start&&r.end>=segment.end),`classifier region must cover appended ${segment.location.part||segment.location.field} evidence`);
 });
 test('Northwind hard-negative sentences remain unflagged by deterministic rules',async()=>{
  const parsed=await parseDocument(readFileSync(resolve('tests/fixtures/vendor_review_northwind_q3.pdf')),'vendor_review_northwind_q3.pdf','application/pdf');
